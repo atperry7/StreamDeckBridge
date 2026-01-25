@@ -22,12 +22,7 @@ StreamDeckBridge creates a local server that listens for commands from your Stre
 
 ## Stream Deck Setup
 
-You'll need a Stream Deck plugin that can send TCP messages. A popular option is the **Advanced Launcher** plugin or any plugin that supports raw TCP socket connections.
-
-Configure your Stream Deck buttons with:
-- **Host:** `127.0.0.1`
-- **Port:** `19769`
-- **Message:** Any Windower command (without the `//` prefix)
+You can find my custom built Stream Deck Plugin here: https://github.com/atperry7/FFXI-Stream-Deck-Plugin
 
 ### Example Commands
 
