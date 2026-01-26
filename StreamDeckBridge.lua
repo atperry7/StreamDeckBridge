@@ -19,6 +19,11 @@ local clients = {}
 
 local IPC_PREFIX = 'SDB:'  -- Prefix for IPC messages to identify StreamDeckBridge commands
 
+-- Save settings globally so all characters see the same server_character and focus_mode
+local function save_global_settings()
+    config.save(settings, 'all')
+end
+
 local function execute_command(command)
     windower.send_command(command)
 end
@@ -163,17 +168,17 @@ windower.register_event('addon command', function(command, ...)
             return
         end
         settings.server_character = player.name
-        config.save(settings)
+        save_global_settings()
         print('StreamDeckBridge: Server character set to ' .. player.name)
         print('StreamDeckBridge: Reloading addon to start server...')
         windower.send_command('lua r StreamDeckBridge')
     elseif command == 'disable' then
         settings.server_character = ''
-        config.save(settings)
+        save_global_settings()
         print('StreamDeckBridge: Server disabled')
     elseif command == 'focus' then
         settings.focus_mode = not settings.focus_mode
-        config.save(settings)
+        save_global_settings()
         local mode_str = settings.focus_mode and 'enabled' or 'disabled'
         print('StreamDeckBridge: Focus mode ' .. mode_str)
         if settings.focus_mode then
