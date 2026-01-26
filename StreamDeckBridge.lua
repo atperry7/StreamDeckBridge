@@ -1,6 +1,6 @@
 _addon.name = 'StreamDeckBridge'
 _addon.author = 'Anthony'
-_addon.version = '1.1.0'
+_addon.version = '1.2.0'
 _addon.commands = {'sdb','streamdeckbridge'}
 
 local socket = require('socket')
@@ -9,12 +9,19 @@ local config = require('config')
 local defaults = {
     port = 19769,
     server_character = '',  -- Empty = disabled, otherwise the character name that runs the server
+    focus_mode = false,     -- When true, commands are sent to the focused FFXI window via IPC
 }
 
 local settings = config.load(defaults)
 
 local server = nil
 local clients = {}
+
+local IPC_PREFIX = 'SDB:'  -- Prefix for IPC messages to identify StreamDeckBridge commands
+
+local function execute_command(command)
+    windower.send_command(command)
+end
 
 local function poll()
     if not server then return end
@@ -28,7 +35,14 @@ local function poll()
     for i = #clients, 1, -1 do
         local data, err = clients[i]:receive('*l')
         if data then
-            windower.send_command(data)
+            if settings.focus_mode then
+                -- Broadcast to all Windower instances via IPC
+                -- The focused instance will execute the command
+                windower.send_ipc_message(IPC_PREFIX .. data)
+            else
+                -- Execute directly on this character (original behavior)
+                execute_command(data)
+            end
         elseif err == 'closed' then
             table.remove(clients, i)
         end
@@ -120,6 +134,19 @@ windower.register_event('login', function()
     check_and_start()
 end)
 
+-- IPC handler for focus mode: execute commands only if this window has focus
+windower.register_event('ipc message', function(message)
+    -- Only process messages with our prefix
+    if message:sub(1, #IPC_PREFIX) ~= IPC_PREFIX then return end
+
+    -- Only execute if this window has focus
+    if not windower.has_focus() then return end
+
+    -- Extract and execute the command
+    local command = message:sub(#IPC_PREFIX + 1)
+    execute_command(command)
+end)
+
 windower.register_event('addon command', function(command, ...)
     command = command and command:lower() or 'status'
 
@@ -138,19 +165,33 @@ windower.register_event('addon command', function(command, ...)
         settings.server_character = ''
         config.save(settings)
         print('StreamDeckBridge: Server disabled')
+    elseif command == 'focus' then
+        settings.focus_mode = not settings.focus_mode
+        config.save(settings)
+        local mode_str = settings.focus_mode and 'enabled' or 'disabled'
+        print('StreamDeckBridge: Focus mode ' .. mode_str)
+        if settings.focus_mode then
+            print('StreamDeckBridge: Commands will be sent to the focused FFXI window')
+        else
+            print('StreamDeckBridge: Commands will execute on the server character only')
+        end
     elseif command == 'status' then
         local player = windower.ffxi.get_player()
         local char_name = player and player.name or 'Not logged in'
         local sc = settings.server_character or ''
         local server_char = sc ~= '' and sc or 'not set'
         local server_status = server and 'listening' or 'not started'
+        local focus_status = settings.focus_mode and 'enabled' or 'disabled'
+        local has_focus = windower.has_focus() and 'yes' or 'no'
         print('StreamDeckBridge: Current character: ' .. char_name)
         print('StreamDeckBridge: Server character: ' .. server_char)
         print('StreamDeckBridge: Port ' .. settings.port .. ', ' .. #clients .. ' client(s), server ' .. server_status)
+        print('StreamDeckBridge: Focus mode: ' .. focus_status .. ' (this window has focus: ' .. has_focus .. ')')
     else
         print('StreamDeckBridge commands:')
         print('  //sdb enable   - Set THIS character as the server character')
         print('  //sdb disable  - Clear server character (disable server)')
+        print('  //sdb focus    - Toggle focus mode (send commands to focused window)')
         print('  //sdb status   - Show current state')
     end
 end)
