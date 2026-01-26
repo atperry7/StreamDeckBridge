@@ -20,6 +20,11 @@ StreamDeckBridge creates a local server that listens for commands from your Stre
 
    Or add it to your Windower init file to load automatically.
 
+3. Set up the server on your main character:
+   ```
+   //sdb enable
+   ```
+
 ## Stream Deck Setup
 
 You can find my custom built Stream Deck Plugin here: https://github.com/atperry7/FFXI-Stream-Deck-Plugin
@@ -38,16 +43,38 @@ You can find my custom built Stream Deck Plugin here: https://github.com/atperry
 
 | Command | Description |
 |---------|-------------|
-| `//sdb status` | Show server status and connected clients |
-| `//sdb main <name>` | Only run the addon on a specific character |
-| `//sdb main` | Show the current main character setting |
+| `//sdb enable` | Set THIS character as the server (receives Stream Deck commands) |
+| `//sdb disable` | Stop receiving Stream Deck commands |
+| `//sdb focus` | Toggle focus mode (see below) |
+| `//sdb status` | Show server status and current settings |
+
+## Focus Mode
+
+Focus mode lets you control whichever FFXI window you're currently looking at.
+
+**Without focus mode:** Commands always go to your server character (the one where you ran `//sdb enable`).
+
+**With focus mode:** Commands go to whichever character's window is active. Alt-tab to a different character, and your Stream Deck buttons will control that character instead.
+
+### How to Use Focus Mode
+
+1. Load StreamDeckBridge on ALL your characters
+2. Run `//sdb enable` on your main character (this is your "server")
+3. Run `//sdb focus` to turn on focus mode
+4. Alt-tab between characters - Stream Deck commands go to whichever window is focused
+
+This is useful for:
+- Sending the same buff or heal to whoever needs it
+- Moving multiple characters with the same homepoint button
+- Controlling whichever character you're actively playing
 
 ## Settings
 
 Settings are stored in `data/settings.xml`:
 
 - **port** - Server port (default: `19769`)
-- **main_character** - Restrict addon to a specific character
+- **server_character** - The character that runs the server
+- **focus_mode** - When enabled, commands go to the focused window
 
 ## Troubleshooting
 
@@ -59,6 +86,10 @@ Settings are stored in `data/settings.xml`:
 **Commands not working?**
 - Commands are sent exactly as typed - don't include `//`
 - Check Windower's console for any error messages
+
+**Focus mode not working on alt characters?**
+- Make sure StreamDeckBridge is loaded on all characters
+- Run `//sdb status` to verify focus mode is enabled
 
 ## License
 
