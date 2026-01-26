@@ -38,11 +38,30 @@ end
 local function start_server()
     if server then return end
 
-    server = socket.tcp()
-    server:setoption('reuseaddr', true)
-    server:bind('127.0.0.1', settings.port)
-    server:listen(5)
-    server:settimeout(0)
+    local sock = socket.tcp()
+    if not sock then
+        print('StreamDeckBridge: Failed to create socket')
+        return
+    end
+
+    sock:setoption('reuseaddr', true)
+
+    local ok, err = sock:bind('127.0.0.1', settings.port)
+    if not ok then
+        print('StreamDeckBridge: Failed to bind to port ' .. settings.port .. ': ' .. (err or 'unknown error'))
+        sock:close()
+        return
+    end
+
+    ok, err = sock:listen(5)
+    if not ok then
+        print('StreamDeckBridge: Failed to listen: ' .. (err or 'unknown error'))
+        sock:close()
+        return
+    end
+
+    sock:settimeout(0)
+    server = sock
 
     coroutine.schedule(function()
         while server do
@@ -78,9 +97,10 @@ local function check_and_start()
 
     migrate_settings()
 
-    local is_server_char = settings.server_character:lower() == player.name:lower()
+    local server_char = settings.server_character or ''
+    local is_server_char = server_char ~= '' and server_char:lower() == player.name:lower()
     if not is_server_char then
-        print('StreamDeckBridge: Server character is "' .. (settings.server_character ~= '' and settings.server_character or 'not set') .. '"')
+        print('StreamDeckBridge: Server character is "' .. (server_char ~= '' and server_char or 'not set') .. '"')
         print('StreamDeckBridge: Use "//sdb enable" to set this character as server')
         return
     end
@@ -121,7 +141,8 @@ windower.register_event('addon command', function(command, ...)
     elseif command == 'status' then
         local player = windower.ffxi.get_player()
         local char_name = player and player.name or 'Not logged in'
-        local server_char = settings.server_character ~= '' and settings.server_character or 'not set'
+        local sc = settings.server_character or ''
+        local server_char = sc ~= '' and sc or 'not set'
         local server_status = server and 'listening' or 'not started'
         print('StreamDeckBridge: Current character: ' .. char_name)
         print('StreamDeckBridge: Server character: ' .. server_char)
