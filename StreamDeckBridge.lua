@@ -114,8 +114,14 @@ local function check_and_start()
     local server_char = settings.server_character or ''
     local is_server_char = server_char ~= '' and server_char:lower() == player.name:lower()
     if not is_server_char then
-        print('StreamDeckBridge: Server character is "' .. (server_char ~= '' and server_char or 'not set') .. '"')
-        print('StreamDeckBridge: Use "//sdb enable" to set this character as server')
+        if server_char == '' then
+            print('StreamDeckBridge: No server character set')
+            print('StreamDeckBridge: Use "//sdb enable" to set this character as server')
+        elseif settings.focus_mode then
+            print('StreamDeckBridge: Listening for commands (focus mode enabled, server: ' .. server_char .. ')')
+        else
+            print('StreamDeckBridge: Server running on "' .. server_char .. '" (focus mode disabled)')
+        end
         return
     end
 
