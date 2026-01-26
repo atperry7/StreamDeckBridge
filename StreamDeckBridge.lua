@@ -21,7 +21,7 @@ local IPC_PREFIX = 'SDB:'  -- Prefix for IPC messages to identify StreamDeckBrid
 
 -- Save settings globally so all characters see the same server_character and focus_mode
 local function save_global_settings()
-    config.save(settings, 'all')
+    settings:save('all')
 end
 
 local function execute_command(command)
