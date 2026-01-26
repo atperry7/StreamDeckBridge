@@ -42,8 +42,11 @@ local function poll()
         if data then
             if settings.focus_mode then
                 -- Broadcast to all Windower instances via IPC
-                -- The focused instance will execute the command
                 windower.send_ipc_message(IPC_PREFIX .. data)
+                -- IPC doesn't send to self, so execute locally if we have focus
+                if windower.has_focus() then
+                    execute_command(data)
+                end
             else
                 -- Execute directly on this character (original behavior)
                 execute_command(data)
