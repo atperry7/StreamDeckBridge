@@ -47,7 +47,7 @@ You can find my custom built Stream Deck Plugin here: https://github.com/atperry
 Settings are stored in `data/settings.xml`:
 
 - **port** - Server port (default: `19769`)
-- **main_character** - Restrict addon to a specific character (leave empty for all characters)
+- **main_character** - Restrict addon to a specific character
 
 ## Troubleshooting
 
