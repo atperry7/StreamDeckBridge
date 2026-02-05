@@ -11,7 +11,7 @@ StreamDeckBridge creates a local server that listens for commands from your Stre
 StreamDeckBridge supports per-button command routing across multiple FFXI characters. The Stream Deck plugin sends a target with each command, and StreamDeckBridge routes it using Windower's native IPC:
 
 - **Focus mode** (`@focus`) — Command executes on whichever FFXI window currently has focus
-- **Server direct** (`@server`) — Command executes on the server character regardless of focus
+- **Server direct** (`@main`) — Command executes on the server character regardless of focus
 - **Character name** — Command is routed to a specific character via IPC
 - **@all** — Command executes on every character running the addon
 

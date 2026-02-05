@@ -32,7 +32,7 @@ local function route_command(target, command)
     local player = windower.ffxi.get_player()
     local player_name = player and player.name:lower() or ''
 
-    if target == '@server' or target == player_name then
+    if target == '@main' or target == player_name then
         execute_command(command)
     elseif target == '@focus' then
         windower.send_ipc_message(IPC_PREFIX .. command)
