@@ -6,6 +6,17 @@ A Windower addon that lets you control Final Fantasy XI from your Stream Deck.
 
 StreamDeckBridge creates a local server that listens for commands from your Stream Deck. Any button press on your Stream Deck can send a command directly to Windower, letting you trigger macros, cast spells, change equipment, or run any Windower command with a single button press.
 
+### Multi-Character Routing
+
+StreamDeckBridge supports per-button command routing across multiple FFXI characters. The Stream Deck plugin sends a target with each command, and StreamDeckBridge routes it using Windower's native IPC:
+
+- **Focus mode** (`@focus`) — Command executes on whichever FFXI window currently has focus
+- **Server direct** (`@server`) — Command executes on the server character regardless of focus
+- **Character name** — Command is routed to a specific character via IPC
+- **@all** — Command executes on every character running the addon
+
+Routing is configured per-button in the Stream Deck plugin UI. The addon on non-server characters listens for IPC messages and executes commands targeted at them.
+
 ## Installation
 
 1. Download or clone this addon to your Windower addons folder:
@@ -19,6 +30,13 @@ StreamDeckBridge creates a local server that listens for commands from your Stre
    ```
 
    Or add it to your Windower init file to load automatically.
+
+3. Set the server character (on the character that should receive Stream Deck connections):
+   ```
+   //sdb enable
+   ```
+
+4. Load the addon on all other characters that should receive targeted or `@all` commands.
 
 ## Stream Deck Setup
 
@@ -38,16 +56,20 @@ You can find my custom built Stream Deck Plugin here: https://github.com/atperry
 
 | Command | Description |
 |---------|-------------|
-| `//sdb status` | Show server status and connected clients |
-| `//sdb main <name>` | Only run the addon on a specific character |
-| `//sdb main` | Show the current main character setting |
+| `//sdb enable` | Set this character as the server (listens for Stream Deck connections) |
+| `//sdb disable` | Clear server character (disable server) |
+| `//sdb status` | Show server status, connected clients, and focus state |
 
 ## Settings
 
 Settings are stored in `data/settings.xml`:
 
 - **port** - Server port (default: `19769`)
-- **main_character** - Restrict addon to a specific character
+- **server_character** - The character that runs the TCP server
+
+## TCP Protocol
+
+The Stream Deck plugin sends commands in the format `<target>|<command>`. Commands without a `|` are treated as legacy and execute directly on the server character.
 
 ## Troubleshooting
 
@@ -59,6 +81,10 @@ Settings are stored in `data/settings.xml`:
 **Commands not working?**
 - Commands are sent exactly as typed - don't include `//`
 - Check Windower's console for any error messages
+
+**Commands not reaching other characters?**
+- Make sure StreamDeckBridge is loaded on all characters (`//lua load streamdeckbridge`)
+- Verify the character name in the Stream Deck button matches the in-game character name
 
 ## License
 

@@ -1,6 +1,6 @@
 _addon.name = 'StreamDeckBridge'
 _addon.author = 'Anthony'
-_addon.version = '1.2.0'
+_addon.version = '1.3.0'
 _addon.commands = {'sdb','streamdeckbridge'}
 
 local socket = require('socket')
@@ -9,7 +9,6 @@ local config = require('config')
 local defaults = {
     port = 19769,
     server_character = '',  -- Empty = disabled, otherwise the character name that runs the server
-    focus_mode = false,     -- When true, commands are sent to the focused FFXI window via IPC
 }
 
 local settings = config.load(defaults)
@@ -17,15 +16,36 @@ local settings = config.load(defaults)
 local server = nil
 local clients = {}
 
-local IPC_PREFIX = 'SDB:'  -- Prefix for IPC messages to identify StreamDeckBridge commands
+local IPC_PREFIX = 'SDB:'  -- Prefix for focus-mode IPC messages
+local IPC_TARGET_PREFIX = 'SDBT:'  -- Prefix for targeted IPC messages
 
--- Save settings globally so all characters see the same server_character and focus_mode
+-- Save settings globally so all characters see the same server_character
 local function save_global_settings()
     settings:save('all')
 end
 
 local function execute_command(command)
     windower.send_command(command)
+end
+
+local function route_command(target, command)
+    local player = windower.ffxi.get_player()
+    local player_name = player and player.name:lower() or ''
+
+    if target == '@server' or target == player_name then
+        execute_command(command)
+    elseif target == '@focus' then
+        windower.send_ipc_message(IPC_PREFIX .. command)
+        if windower.has_focus() then
+            execute_command(command)
+        end
+    elseif target == '@all' then
+        execute_command(command)
+        windower.send_ipc_message(IPC_TARGET_PREFIX .. '@all:' .. command)
+    else
+        -- Specific character name — send via IPC to that character
+        windower.send_ipc_message(IPC_TARGET_PREFIX .. target .. ':' .. command)
+    end
 end
 
 local function poll()
@@ -40,15 +60,13 @@ local function poll()
     for i = #clients, 1, -1 do
         local data, err = clients[i]:receive('*l')
         if data then
-            if settings.focus_mode then
-                -- Broadcast to all Windower instances via IPC
-                windower.send_ipc_message(IPC_PREFIX .. data)
-                -- IPC doesn't send to self, so execute locally if we have focus
-                if windower.has_focus() then
-                    execute_command(data)
-                end
+            local pipe_pos = data:find('|')
+            if pipe_pos then
+                local target = data:sub(1, pipe_pos - 1):lower():match('^%s*(.-)%s*$')
+                local command = data:sub(pipe_pos + 1)
+                route_command(target, command)
             else
-                -- Execute directly on this character (original behavior)
+                -- Legacy: no target prefix → execute on server
                 execute_command(data)
             end
         elseif err == 'closed' then
@@ -111,6 +129,11 @@ local function migrate_settings()
         settings.enabled = nil
         config.save(settings)
     end
+    -- Clean up old focus_mode setting
+    if settings.focus_mode ~= nil then
+        settings.focus_mode = nil
+        config.save(settings)
+    end
 end
 
 local function check_and_start()
@@ -125,10 +148,8 @@ local function check_and_start()
         if server_char == '' then
             print('StreamDeckBridge: No server character set')
             print('StreamDeckBridge: Use "//sdb enable" to set this character as server')
-        elseif settings.focus_mode then
-            print('StreamDeckBridge: Listening for commands (focus mode enabled, server: ' .. server_char .. ')')
         else
-            print('StreamDeckBridge: Server running on "' .. server_char .. '" (focus mode disabled)')
+            print('StreamDeckBridge: Listening for IPC commands (server: ' .. server_char .. ')')
         end
         return
     end
@@ -148,15 +169,29 @@ windower.register_event('login', function()
     check_and_start()
 end)
 
--- IPC handler for focus mode: execute commands only if this window has focus
+-- IPC handler for both focus-mode and targeted messages
 windower.register_event('ipc message', function(message)
-    -- Only process messages with our prefix
+    -- Targeted messages: SDBT:<target>:<command>
+    if message:sub(1, #IPC_TARGET_PREFIX) == IPC_TARGET_PREFIX then
+        local rest = message:sub(#IPC_TARGET_PREFIX + 1)
+        local colon_pos = rest:find(':')
+        if colon_pos then
+            local target = rest:sub(1, colon_pos - 1):lower()
+            local command = rest:sub(colon_pos + 1)
+            local player = windower.ffxi.get_player()
+            if player then
+                local name = player.name:lower()
+                if target == name or target == '@all' then
+                    execute_command(command)
+                end
+            end
+        end
+        return
+    end
+
+    -- Focus messages: SDB:<command> (execute if focused)
     if message:sub(1, #IPC_PREFIX) ~= IPC_PREFIX then return end
-
-    -- Only execute if this window has focus
     if not windower.has_focus() then return end
-
-    -- Extract and execute the command
     local command = message:sub(#IPC_PREFIX + 1)
     execute_command(command)
 end)
@@ -179,33 +214,21 @@ windower.register_event('addon command', function(command, ...)
         settings.server_character = ''
         save_global_settings()
         print('StreamDeckBridge: Server disabled')
-    elseif command == 'focus' then
-        settings.focus_mode = not settings.focus_mode
-        save_global_settings()
-        local mode_str = settings.focus_mode and 'enabled' or 'disabled'
-        print('StreamDeckBridge: Focus mode ' .. mode_str)
-        if settings.focus_mode then
-            print('StreamDeckBridge: Commands will be sent to the focused FFXI window')
-        else
-            print('StreamDeckBridge: Commands will execute on the server character only')
-        end
     elseif command == 'status' then
         local player = windower.ffxi.get_player()
         local char_name = player and player.name or 'Not logged in'
         local sc = settings.server_character or ''
         local server_char = sc ~= '' and sc or 'not set'
         local server_status = server and 'listening' or 'not started'
-        local focus_status = settings.focus_mode and 'enabled' or 'disabled'
         local has_focus = windower.has_focus() and 'yes' or 'no'
         print('StreamDeckBridge: Current character: ' .. char_name)
         print('StreamDeckBridge: Server character: ' .. server_char)
         print('StreamDeckBridge: Port ' .. settings.port .. ', ' .. #clients .. ' client(s), server ' .. server_status)
-        print('StreamDeckBridge: Focus mode: ' .. focus_status .. ' (this window has focus: ' .. has_focus .. ')')
+        print('StreamDeckBridge: Window has focus: ' .. has_focus)
     else
         print('StreamDeckBridge commands:')
         print('  //sdb enable   - Set THIS character as the server character')
         print('  //sdb disable  - Clear server character (disable server)')
-        print('  //sdb focus    - Toggle focus mode (send commands to focused window)')
         print('  //sdb status   - Show current state')
     end
 end)
