@@ -190,7 +190,9 @@ windower.register_event('ipc message', function(message)
     end
 
     -- Focus messages: SDB:<command> (execute if focused)
+    -- Server character already handles focus commands in route_command, skip to avoid double-execution
     if message:sub(1, #IPC_PREFIX) ~= IPC_PREFIX then return end
+    if server then return end
     if not windower.has_focus() then return end
     local command = message:sub(#IPC_PREFIX + 1)
     execute_command(command)
