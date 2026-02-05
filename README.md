@@ -6,6 +6,17 @@ A Windower addon that lets you control Final Fantasy XI from your Stream Deck.
 
 StreamDeckBridge creates a local server that listens for commands from your Stream Deck. Any button press on your Stream Deck can send a command directly to Windower, letting you trigger macros, cast spells, change equipment, or run any Windower command with a single button press.
 
+### Multi-Character Routing
+
+StreamDeckBridge supports per-button command routing across multiple FFXI characters. The Stream Deck plugin sends a target with each command, and StreamDeckBridge routes it using Windower's native IPC:
+
+- **Focus mode** (`@focus`) — Command executes on whichever FFXI window currently has focus
+- **Server direct** (`@main`) — Command executes on the server character regardless of focus
+- **Character name** — Command is routed to a specific character via IPC
+- **@all** — Command executes on every character running the addon
+
+Routing is configured per-button in the Stream Deck plugin UI. The addon on non-server characters listens for IPC messages and executes commands targeted at them.
+
 ## Installation
 
 1. Download or clone this addon to your Windower addons folder:
