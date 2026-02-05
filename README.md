@@ -31,12 +31,10 @@ Routing is configured per-button in the Stream Deck plugin UI. The addon on non-
 
    Or add it to your Windower init file to load automatically.
 
-3. Set the server character (on the character that should receive Stream Deck connections):
+3. Set up the server on your main character:
    ```
    //sdb enable
    ```
-
-4. Load the addon on all other characters that should receive targeted or `@all` commands.
 
 ## Stream Deck Setup
 
@@ -56,20 +54,38 @@ You can find my custom built Stream Deck Plugin here: https://github.com/atperry
 
 | Command | Description |
 |---------|-------------|
-| `//sdb enable` | Set this character as the server (listens for Stream Deck connections) |
-| `//sdb disable` | Clear server character (disable server) |
-| `//sdb status` | Show server status, connected clients, and focus state |
+| `//sdb enable` | Set THIS character as the server (receives Stream Deck commands) |
+| `//sdb disable` | Stop receiving Stream Deck commands |
+| `//sdb focus` | Toggle focus mode (see below) |
+| `//sdb status` | Show server status and current settings |
+
+## Focus Mode
+
+Focus mode lets you control whichever FFXI window you're currently looking at.
+
+**Without focus mode:** Commands always go to your server character (the one where you ran `//sdb enable`).
+
+**With focus mode:** Commands go to whichever character's window is active. Alt-tab to a different character, and your Stream Deck buttons will control that character instead.
+
+### How to Use Focus Mode
+
+1. Load StreamDeckBridge on ALL your characters
+2. Run `//sdb enable` on your main character (this is your "server")
+3. Run `//sdb focus` to turn on focus mode
+4. Alt-tab between characters - Stream Deck commands go to whichever window is focused
+
+This is useful for:
+- Sending the same buff or heal to whoever needs it
+- Moving multiple characters with the same homepoint button
+- Controlling whichever character you're actively playing
 
 ## Settings
 
 Settings are stored in `data/settings.xml`:
 
 - **port** - Server port (default: `19769`)
-- **server_character** - The character that runs the TCP server
-
-## TCP Protocol
-
-The Stream Deck plugin sends commands in the format `<target>|<command>`. Commands without a `|` are treated as legacy and execute directly on the server character.
+- **server_character** - The character that runs the server
+- **focus_mode** - When enabled, commands go to the focused window
 
 ## Troubleshooting
 
@@ -82,9 +98,9 @@ The Stream Deck plugin sends commands in the format `<target>|<command>`. Comman
 - Commands are sent exactly as typed - don't include `//`
 - Check Windower's console for any error messages
 
-**Commands not reaching other characters?**
-- Make sure StreamDeckBridge is loaded on all characters (`//lua load streamdeckbridge`)
-- Verify the character name in the Stream Deck button matches the in-game character name
+**Focus mode not working on alt characters?**
+- Make sure StreamDeckBridge is loaded on all characters
+- Run `//sdb status` to verify focus mode is enabled
 
 ## License
 
