@@ -1,6 +1,6 @@
 _addon.name = 'StreamDeckBridge'
 _addon.author = 'Anthony'
-_addon.version = '1.3.0'
+_addon.version = '1.4.1'
 _addon.commands = {'sdb','streamdeckbridge'}
 
 local socket = require('socket')
@@ -15,6 +15,7 @@ local settings = config.load(defaults)
 
 local server = nil
 local clients = {}
+local buffers = {}  -- Per-client partial-line buffers (receive('*l') discards partials on timeout)
 
 local IPC_PREFIX = 'SDB:'  -- Prefix for focus-mode IPC messages
 local IPC_TARGET_PREFIX = 'SDBT:'  -- Prefix for targeted IPC messages
@@ -48,32 +49,52 @@ local function route_command(target, command)
     end
 end
 
+local function handle_line(data)
+    local pipe_pos = data:find('|', 1, true)
+    if pipe_pos then
+        local target = data:sub(1, pipe_pos - 1):lower():match('^%s*(.-)%s*$')
+        local command = data:sub(pipe_pos + 1)
+        route_command(target, command)
+    else
+        -- Legacy: no target prefix → execute on server
+        execute_command(data)
+    end
+end
+
 local function poll()
     if not server then return end
 
-    local client = server:accept()
-    if client then
+    while true do
+        local client = server:accept()
+        if not client then break end
         client:settimeout(0)
         table.insert(clients, client)
+        buffers[client] = ''
     end
 
     for i = #clients, 1, -1 do
-        local data, err = clients[i]:receive('*l')
-        if data then
-            local pipe_pos = data:find('|')
-            if pipe_pos then
-                local target = data:sub(1, pipe_pos - 1):lower():match('^%s*(.-)%s*$')
-                local command = data:sub(pipe_pos + 1)
-                route_command(target, command)
+        local client = clients[i]
+        while true do
+            local data, err, partial = client:receive('*l')
+            if data then
+                handle_line(buffers[client] .. data)
+                buffers[client] = ''
+            elseif err == 'timeout' then
+                if partial and partial ~= '' then
+                    buffers[client] = buffers[client] .. partial
+                end
+                break
             else
-                -- Legacy: no target prefix → execute on server
-                execute_command(data)
+                client:close()
+                buffers[client] = nil
+                table.remove(clients, i)
+                break
             end
-        elseif err == 'closed' then
-            table.remove(clients, i)
         end
     end
 end
+
+windower.register_event('prerender', poll)
 
 local function start_server()
     if server then return end
@@ -103,36 +124,18 @@ local function start_server()
     sock:settimeout(0)
     server = sock
 
-    coroutine.schedule(function()
-        while server do
-            poll()
-            coroutine.sleep(0.1)
-        end
-    end, 0)
-
     print('StreamDeckBridge listening on port ' .. settings.port)
 end
 
-local function migrate_settings()
-    -- Migrate from old main_character to server_character
-    if settings.main_character ~= nil and settings.main_character ~= '' then
-        settings.server_character = settings.main_character
-        settings.main_character = nil
-        config.save(settings)
-        print('StreamDeckBridge: Migrated server_character = ' .. settings.server_character)
-    elseif settings.main_character == '' then
-        settings.main_character = nil
-        config.save(settings)
+local function stop_server()
+    for _, client in ipairs(clients) do
+        client:close()
     end
-    -- Clean up old per-character enabled flags
-    if settings.enabled ~= nil then
-        settings.enabled = nil
-        config.save(settings)
-    end
-    -- Clean up old focus_mode setting
-    if settings.focus_mode ~= nil then
-        settings.focus_mode = nil
-        config.save(settings)
+    clients = {}
+    buffers = {}
+    if server then
+        server:close()
+        server = nil
     end
 end
 
@@ -140,11 +143,12 @@ local function check_and_start()
     local player = windower.ffxi.get_player()
     if not player then return end
 
-    migrate_settings()
-
     local server_char = settings.server_character or ''
     local is_server_char = server_char ~= '' and server_char:lower() == player.name:lower()
     if not is_server_char then
+        -- Switching characters on this instance must not leave a previous
+        -- character's server running under the wrong name
+        stop_server()
         if server_char == '' then
             print('StreamDeckBridge: No server character set')
             print('StreamDeckBridge: Use "//sdb enable" to set this character as server')
@@ -157,17 +161,7 @@ local function check_and_start()
     start_server()
 end
 
-windower.register_event('load', function()
-    -- If already logged in, check and start
-    local player = windower.ffxi.get_player()
-    if player then
-        check_and_start()
-    end
-end)
-
-windower.register_event('login', function()
-    check_and_start()
-end)
+windower.register_event('load', 'login', check_and_start)
 
 -- IPC handler for both focus-mode and targeted messages
 windower.register_event('ipc message', function(message)
@@ -210,11 +204,11 @@ windower.register_event('addon command', function(command, ...)
         settings.server_character = player.name
         save_global_settings()
         print('StreamDeckBridge: Server character set to ' .. player.name)
-        print('StreamDeckBridge: Reloading addon to start server...')
-        windower.send_command('lua r StreamDeckBridge')
+        start_server()
     elseif command == 'disable' then
         settings.server_character = ''
         save_global_settings()
+        stop_server()
         print('StreamDeckBridge: Server disabled')
     elseif command == 'status' then
         local player = windower.ffxi.get_player()
@@ -235,9 +229,4 @@ windower.register_event('addon command', function(command, ...)
     end
 end)
 
-windower.register_event('unload', function()
-    for _, client in ipairs(clients) do
-        client:close()
-    end
-    if server then server:close() end
-end)
+windower.register_event('unload', stop_server)

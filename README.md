@@ -56,23 +56,18 @@ You can find my custom built Stream Deck Plugin here: https://github.com/atperry
 |---------|-------------|
 | `//sdb enable` | Set THIS character as the server (receives Stream Deck commands) |
 | `//sdb disable` | Stop receiving Stream Deck commands |
-| `//sdb focus` | Toggle focus mode (see below) |
 | `//sdb status` | Show server status and current settings |
 
-## Focus Mode
+## Focus Routing (`@focus`)
 
-Focus mode lets you control whichever FFXI window you're currently looking at.
+Buttons targeted at `@focus` control whichever FFXI window is currently active. Alt-tab to a different character, and those buttons control that character instead.
 
-**Without focus mode:** Commands always go to your server character (the one where you ran `//sdb enable`).
-
-**With focus mode:** Commands go to whichever character's window is active. Alt-tab to a different character, and your Stream Deck buttons will control that character instead.
-
-### How to Use Focus Mode
+### How to Use Focus Routing
 
 1. Load StreamDeckBridge on ALL your characters
 2. Run `//sdb enable` on your main character (this is your "server")
-3. Run `//sdb focus` to turn on focus mode
-4. Alt-tab between characters - Stream Deck commands go to whichever window is focused
+3. Set the button's target to `@focus` in the Stream Deck plugin UI
+4. Alt-tab between characters - those buttons go to whichever window is focused
 
 This is useful for:
 - Sending the same buff or heal to whoever needs it
@@ -85,7 +80,6 @@ Settings are stored in `data/settings.xml`:
 
 - **port** - Server port (default: `19769`)
 - **server_character** - The character that runs the server
-- **focus_mode** - When enabled, commands go to the focused window
 
 ## Troubleshooting
 
@@ -98,9 +92,9 @@ Settings are stored in `data/settings.xml`:
 - Commands are sent exactly as typed - don't include `//`
 - Check Windower's console for any error messages
 
-**Focus mode not working on alt characters?**
+**`@focus` buttons not working on alt characters?**
 - Make sure StreamDeckBridge is loaded on all characters
-- Run `//sdb status` to verify focus mode is enabled
+- Check the button's target is set to `@focus` in the Stream Deck plugin UI
 
 ## License
 
